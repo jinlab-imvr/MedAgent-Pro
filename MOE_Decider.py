@@ -57,6 +57,6 @@ class MOE_Decider:
         }
 
 # Example usage:
-weights = {"cdr": 0.3, "rt": 0.3, "ppa": 0.2}
-decider = MOE_Decider(weights, 0.5)
-metrics = decider.evaluate("../Fundus/brief_record/REFUGE")
+# weights = {"cdr": 0.3, "rt": 0.3, "ppa": 0.2}
+# decider = MOE_Decider(weights, 0.5)
+# metrics = decider.evaluate("../Fundus/brief_record/REFUGE")
