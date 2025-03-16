@@ -27,8 +27,8 @@ prompt2 = "Does the patient have Peripapillary Atrophy according to the fundus i
 prompt3 = "Please describe the observations made in the fundus image and provide a diagnosis on optic drance hemorrhages."
 
 
-# vqa = VQA_Module("Glaucoma")
-# summary = Summary_Module(OPENAI_API_KEY)
+vqa = VQA_Module("Glaucoma")
+summary = Summary_Module(OPENAI_API_KEY)
 
 sam_ckpt = '/mnt/data0/ziyue/Medical-SAM-Adapter/checkpoint/sam/sam_vit_b_01ec64.pth'
 cup_weights = 'tools/MSA/Adapters/OpticCup_Fundus_SAM_1024.pth'
@@ -51,12 +51,12 @@ for idx in range(3):
     brief_json = os.path.join(brief_record, example.split(".")[0] + ".json")
     pred_json = os.path.join(pred_record, example.split(".")[0] + ".json")
 
-    # answer = vqa.get_answer(image_path, prompt2)
-    # vqa.save_answer(full_json, "ppa", answer)
+    answer = vqa.get_answer(image_path, prompt2)
+    vqa.save_answer(full_json, "ppa", answer)
 
-    cup_mask = cup_adapter.predict_mask(image_path, os.path.join(data_root, "disc_pred", example.split(".")[0] + ".png"))
-    
-    # summary_text = summary.summarize(full_json, brief_json, "ppa")
+    cup_mask = cup_adapter.predict_mask(image_path, os.path.join(data_root, "cup_pred", example.split(".")[0] + ".png"), category=0)
+    disc_mask = disc_adapter.predict_mask(image_path, os.path.join(data_root, "disc_pred", example.split(".")[0] + ".png"), category=128)
+    summary_text = summary.summarize(full_json, brief_json, "ppa")
 
     metrics = decider.decide(brief_json, pred_json)
 

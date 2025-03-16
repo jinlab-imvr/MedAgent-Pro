@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from PIL import Image
 
 from . import cfg
-from .utils import get_network
 from .utils import *
 
 class SAM_Adapter:
@@ -42,8 +41,16 @@ class SAM_Adapter:
         self.net.load_state_dict(new_state_dict,strict=False)
         self.net.eval()
 
+    def click_prompt(self, mask, point_labels = 1, category=None):
+        # check if all masks are black
+        max_label = max(set(mask.flatten()))
+        if max_label == 0:
+            point_labels = max_label
+        # max agreement position
+        indices = np.argwhere(mask == category) 
+        return point_labels, indices[np.random.randint(len(indices))]
 
-    def predict_mask(self,img_path,save_path):
+    def predict_mask(self,img_path,save_path,category=1):
         img = Image.open(img_path).convert('RGB')
         ori_shape = np.array(img).shape
         transform= transforms.Compose([
@@ -55,7 +62,7 @@ class SAM_Adapter:
         mask = cv2.imread(os.path.join(mask_dir,os.path.basename(img_path).replace(".jpg",".bmp")),0)
 
         point_labels = 1
-        point_labels, pt = random_click(mask, point_labels=1)
+        point_labels, pt = self.click_prompt(mask, point_labels=1, category=category)
 
         # pt = [[512,256],[512,512],[512,768]]
         img = transform(img).unsqueeze(0)
@@ -63,6 +70,7 @@ class SAM_Adapter:
 
         point_labels = np.array([point_labels])
         pt = np.array([pt])
+        print(pt)
         # box = torch.tensor([10,10,1013,1013]).to(dtype = torch.float32, device = self.GPUdevice).unsqueeze(0).unsqueeze(0)
         # point_coords = samtrans.ResizeLongestSide(longsize).apply_coords(pt, (h, w))
         point_coords = pt
