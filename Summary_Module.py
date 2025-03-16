@@ -51,7 +51,7 @@ class Summary_Module:
         )
         summary_text = completion.choices[0].message.content
 
-        output_data["brief_" + field] = summary_text
+        output_data[field] = summary_text
 
         with open(output_file, "w", encoding="utf-8") as json_file:
             json.dump(output_data, json_file, indent=4)

@@ -9,7 +9,7 @@ class VQA_Module:
             self.model = VisionUniteModel(self.ckpt_path)
         else:
             print("Please input the correct disease type.")
-            return None
+            return None  
     
     def get_answer(self, image_path, prompt):
         answer = self.model.get_answer(image_path, prompt)
