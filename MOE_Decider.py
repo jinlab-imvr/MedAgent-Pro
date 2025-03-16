@@ -9,7 +9,11 @@ class MOE_Decider:
         self.threshold = threshold
 
     def compute_score(self, entry):
-        pos_score = sum(self.weights[key] if "yes" in entry[key].lower() else 0.15 for key in self.weights)
+        pos_score = sum(
+            self.weights[key] if "yes" in entry[key].lower() 
+            else (0 if "no" in entry[key].lower() else self.weights[key] / 2)
+            for key in self.weights
+        )
         return pos_score
 
     def decide(self, brief_file_path, pred_file_path):        

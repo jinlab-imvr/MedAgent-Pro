@@ -5,7 +5,7 @@ from tools.LLaVaMed.model import LLaVaMed
 
 class VQA_Module:
     def __init__(self, disease_type):
-        if disease_type == "Glaucoma":
+        if disease_type.lower() == "glaucoma":  # Specialized tools for glaucoma
             print("Using VisionUnite model as the VQA module.")
             self.ckpt_path = "/mnt/data0/ziyue/MedAgent/VisionUnite/checkpoint"
             self.model = VisionUniteModel(self.ckpt_path)
