@@ -1,15 +1,18 @@
 import os
 import json
 from tools.VisionUnite.model import VisionUniteModel
+from tools.LLaVaMed.model import LLaVaMed
 
 class VQA_Module:
     def __init__(self, disease_type):
         if disease_type == "Glaucoma":
+            print("Using VisionUnite model as the VQA module.")
             self.ckpt_path = "/mnt/data0/ziyue/MedAgent/VisionUnite/checkpoint"
             self.model = VisionUniteModel(self.ckpt_path)
         else:
-            print("Please input the correct disease type.")
-            return None  
+            print("Using LLaVaMed model as the VQA module.")
+            self.ckpt_path = "microsoft/llava-med-v1.5-mistral-7b" # load from huggingface
+            self.model = LLaVaMed(self.ckpt_path)
     
     def get_answer(self, image_path, prompt):
         answer = self.model.get_answer(image_path, prompt)
