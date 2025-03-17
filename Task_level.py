@@ -1,7 +1,7 @@
 import os
 from RAG import RAG_Module
 
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = ""
 
 ## Load data
 data_root = "../Fundus"
