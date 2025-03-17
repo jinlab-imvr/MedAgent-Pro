@@ -124,7 +124,7 @@ class RAG_Module:
             vector_store = FAISS.from_documents(documents, embeddings)
             retriever = vector_store.as_retriever(
                 search_type="similarity_score_threshold",
-                search_kwargs={'score_threshold': 0.65}
+                search_kwargs={'score_threshold': 0.1}
             )
 
             retrieved_docs = retriever.get_relevant_documents(query)
@@ -145,10 +145,10 @@ class RAG_Module:
 
 
 # Example usage:
-# OPENAI_API_KEY = "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"
-# rag = RAG_Module(openai_api_key=OPENAI_API_KEY)
+OPENAI_API_KEY = ""
+rag = RAG_Module(openai_api_key=OPENAI_API_KEY)
 
-# query_text = "how to diagnose glaucoma"
-# answer = rag.query(query_text)
-# print("Answer:")
-# print(answer)
+query_text = "how to diagnose glaucoma"
+answer = rag.query(query_text)
+print("Answer:")
+print(answer)
