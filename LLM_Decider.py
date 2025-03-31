@@ -55,11 +55,14 @@ class LLM_Decider:
         )
         result = completion.choices[0].message.content
 
-        output_data = {
-            "llm_prediction": result,
-        }
-
+        if os.path.exists(output_file):
+            with open(output_file, "r", encoding="utf-8") as json_file:
+                existing_data = json.load(json_file)
+        else:
+            existing_data = {}
+        existing_data["llm_prediction"] = result
+        
         with open(output_file, "w", encoding="utf-8") as json_file:
-            json.dump(output_data, json_file, indent=4)
+            json.dump(existing_data, json_file, indent=4)
 
-        return output_data
+        return existing_data
