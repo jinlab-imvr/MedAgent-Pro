@@ -146,7 +146,6 @@ class RAG_Module:
 
 # Example usage:
 OPENAI_API_KEY = ""
-OPENAI_API_KEY = "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"
 rag = RAG_Module(openai_api_key=OPENAI_API_KEY)
 
 query_text = "how to diagnose glaucoma"
