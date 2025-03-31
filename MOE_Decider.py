@@ -22,17 +22,20 @@ class MOE_Decider:
         
         score = self.compute_score(data)
         prediction = 1 if score >= self.threshold else 0
-        
-        result = {
-            "moe_prediction": prediction,
-        }
-        
+                
         output_dir = os.path.dirname(pred_file_path)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        
+
+        if os.path.exists(pred_file_path):
+            with open(pred_file_path, "r", encoding="utf-8") as json_file:
+                existing_data = json.load(json_file)
+        else:
+            existing_data = {}
+        existing_data["moe_prediction"] = prediction
+
         with open(pred_file_path, 'w', encoding='utf-8') as f:
-            json.dump(result, f, indent=4)
+            json.dump(existing_data, f, indent=4)
         
-        return result
+        return existing_data
 
