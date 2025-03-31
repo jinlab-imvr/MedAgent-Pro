@@ -144,11 +144,3 @@ class RAG_Module:
 
 
 
-# Example usage:
-OPENAI_API_KEY = ""
-rag = RAG_Module(openai_api_key=OPENAI_API_KEY)
-
-query_text = "how to diagnose glaucoma"
-answer = rag.query(query_text)
-print("Answer:")
-print(answer)
