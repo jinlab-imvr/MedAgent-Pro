@@ -1,0 +1,65 @@
+import os
+import json
+import openai
+import base64
+
+class LLM_Decider:
+    def __init__(self, api_key):
+        """
+        Initialize the LLM_Decider object with the OpenAI API Key.
+
+        Args:
+            api_key (str): OpenAI 的 API Key
+        """
+        self.api_key = api_key
+        openai.api_key = self.api_key
+    
+    def encode_image(self, image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    def decide(self, output_file, prompt, image_path=None):
+        """
+        Decide the output of the LLM model based on the prompt.
+
+        Args:
+            output_file (str): output file path
+            prompt (str): prompt for the LLM model
+
+        Returns:
+            dict: result of the LLM model
+        """
+        base64_image = self.encode_image(image_path)
+
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant. Please help me make a decision based on the following information."},
+            {"role": "user", "content": 
+                [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                ]
+            }
+        ]
+
+        completion = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        result = completion.choices[0].message.content
+
+        output_data = {
+            "llm_prediction": result,
+        }
+
+        with open(output_file, "w", encoding="utf-8") as json_file:
+            json.dump(output_data, json_file, indent=4)
+
+        return output_data
