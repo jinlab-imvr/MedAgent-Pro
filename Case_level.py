@@ -2,7 +2,7 @@ import os
 import json
 from tools.MSA.model import SAM_Adapter
 from tools.VQA import VQA_Module
-from MOE_Decider import MOE_Decider
+from Decider.MOE_Decider import MOE_Decider
 from Summary_Module import Summary_Module
 from Evaluator import Evaluator
 

@@ -3,7 +3,7 @@ import json
 import openai
 import base64
 
-class LLM_Decider:
+class GPT_Decider:
     def __init__(self, api_key):
         """
         Initialize the LLM_Decider object with the OpenAI API Key.

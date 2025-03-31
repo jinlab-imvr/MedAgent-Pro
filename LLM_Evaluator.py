@@ -13,7 +13,7 @@ class LLM_Evaluator:
         self.api_key = api_key
         openai.api_key = self.api_key
 
-    def evaluate(self,  output_file, prediction, answer):
+    def evaluate(self,  output_file, prediction, answer, field):
         """
         Evaluate the output of the LLM model based on the ground truth answer.
 
@@ -45,8 +45,7 @@ class LLM_Evaluator:
         else:
             existing_data = {}
 
-        existing_data["llm_brief_prediction"] = result
-
+        existing_data[field] = result
 
         with open(output_file, "w", encoding="utf-8") as json_file:
             json.dump(existing_data, json_file, indent=4)
