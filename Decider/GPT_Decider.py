@@ -18,7 +18,7 @@ class GPT_Decider:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
-    def decide(self, output_file, prompt, image_path=None):
+    def decide(self, output_file, prompt, image_paths=None, field=None):
         """
         Decide the output of the LLM model based on the prompt.
 
@@ -29,24 +29,26 @@ class GPT_Decider:
         Returns:
             dict: result of the LLM model
         """
-        base64_image = self.encode_image(image_path)
+        if image_paths and not isinstance(image_paths, list):
+            image_paths = [image_paths]
+
+        image_messages = []
+        if image_paths:
+            for path in image_paths:
+                base64_image = self.encode_image(path)
+                image_messages.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{base64_image}"
+                    },
+                })
 
         messages = [
             {"role": "system", "content": "You are a helpful assistant. Please help me make a decision based on the following information."},
-            {"role": "user", "content": 
-                [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{base64_image}"
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt,
-                    },
-                ]
-            }
+            {"role": "user", "content": image_messages + [{
+                "type": "text",
+                "text": prompt,
+            }]}
         ]
 
         completion = openai.ChatCompletion.create(
@@ -60,7 +62,7 @@ class GPT_Decider:
                 existing_data = json.load(json_file)
         else:
             existing_data = {}
-        existing_data["llm_prediction"] = result
+        existing_data[field] = result
         
         with open(output_file, "w", encoding="utf-8") as json_file:
             json.dump(existing_data, json_file, indent=4)
