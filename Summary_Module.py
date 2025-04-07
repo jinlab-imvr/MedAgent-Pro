@@ -42,7 +42,8 @@ class Summary_Module:
 
         messages = [
             {"role": "system", "content": "You are a helpful assistant. Please help me summarize the information."},
-            {"role": "user", "content": f"{content}\n {prompt} \n Answer with only one word (Yes, No or Uncertain)"}
+            # {"role": "user", "content": f"{content}\n {prompt} \nAnswer with only one word (Yes, No or Uncertain)"}
+            {"role": "user", "content": f"{content}\n {prompt} \nAnswer with only one word (Yes or No)"}
         ]
 
         completion = openai.ChatCompletion.create(
