@@ -13,7 +13,7 @@ class Summary_Module:
         self.api_key = api_key
         openai.api_key = self.api_key
 
-    def summarize(self, input_file, output_file, field):
+    def summarize(self, input_file, output_file, prompt, field):
         """
         Summarize the content of a specified field in a JSON file using OpenAI ChatCompletion.
 
@@ -42,7 +42,7 @@ class Summary_Module:
 
         messages = [
             {"role": "system", "content": "You are a helpful assistant. Please help me summarize the information."},
-            {"role": "user", "content": f"{content}\nBased on the above text, please provide a brief summary. does this patient have {field}? Answer with only one word (Yes, No or Uncertain)"}
+            {"role": "user", "content": f"{content}\n {prompt} \n Answer with only one word (Yes, No or Uncertain)"}
         ]
 
         completion = openai.ChatCompletion.create(

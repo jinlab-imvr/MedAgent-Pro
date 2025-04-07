@@ -1,5 +1,6 @@
 import os
 import json
+from tqdm import tqdm
 from tools.MSA.model import SAM_Adapter
 from tools.VQA import VQA_Module
 from Decider.MOE_Decider import MOE_Decider
@@ -42,8 +43,7 @@ weights = {"ppa": 0.2}
 decider = MOE_Decider(weights, 0.4)
 evaluator = Evaluator("moe_prediction")
 
-for idx in range(3):
-    print(idx)
+for idx in tqdm(range(3)):
     example = name_list[idx]
     subdir, file = example.split('_')
     image_path = os.path.join(img_dir, subdir,file)
@@ -56,7 +56,10 @@ for idx in range(3):
 
     cup_mask = cup_adapter.predict_mask(image_path, os.path.join(data_root, "cup_pred", example.split(".")[0] + ".png"), category=0)
     disc_mask = disc_adapter.predict_mask(image_path, os.path.join(data_root, "disc_pred", example.split(".")[0] + ".png"), category=128)
-    summary_text = summary.summarize(full_json, brief_json, "ppa")
+    
+    field = "ppa" 
+    summary_prompt = f"Based on the above text, please provide a brief summary. does this patient have {field}?"
+    summary_text = summary.summarize(full_json, brief_json, summary_prompt, "ppa")
 
     metrics = decider.decide(brief_json, pred_json)
 
