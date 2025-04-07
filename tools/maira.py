@@ -1,18 +1,20 @@
 import os
 import json
 import torch
+from PIL import Image
 from transformers import AutoModelForCausalLM, AutoProcessor
 
 
 class MAIRA:
     def __init__(self, model_path, device=None):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = AutoModelForCausalLM.from_pretrained("microsoft/maira-2", trust_remote_code=True)
-        self.processor = AutoProcessor.from_pretrained("microsoft/maira-2", trust_remote_code=True)
+        self.model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+        self.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
         self.model.to(self.device)
         self.model.eval()
 
-    def predict(self, image, phrase, output_file, field):
+    def predict(self, image_path, phrase, output_file, field):
+        image = Image.open(image_path)
         processed_inputs = self.processor.format_and_preprocess_phrase_grounding_input(
             frontal_image=image,
             phrase=phrase,
@@ -29,7 +31,9 @@ class MAIRA:
         decoded_text = self.processor.decode(output_decoding[0][prompt_length:], skip_special_tokens=True)
         prediction = self.processor.convert_output_to_plaintext_or_grounded_sequence(decoded_text)
 
+        width, height = image.size
         bbox = prediction[0][1][0]
+        bbox = self.processor.adjust_box_for_original_image_size(bbox, width, height)
 
         if os.path.exists(output_file):
             with open(output_file, "r", encoding="utf-8") as json_file:

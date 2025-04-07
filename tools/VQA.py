@@ -1,18 +1,23 @@
 import os
 import json
 from tools.VisionUnite.model import VisionUniteModel
-from tools.LLaVaMed.model import LLaVaMed
+# from tools.LLaVaMed.model import LLaVaMed
+from tools.GPT_VQA import GPT_VQA
 
 class VQA_Module:
-    def __init__(self, disease_type):
-        if disease_type.lower() == "glaucoma":  # Specialized tools for glaucoma
+    def __init__(self, vqa_module, model_path):
+        if vqa_module.lower() == "glaucoma":  # Specialized tools for glaucoma
             print("Using VisionUnite model as the VQA module.")
             self.ckpt_path = "/mnt/data0/ziyue/MedAgent/VisionUnite/checkpoint"
             self.model = VisionUniteModel(self.ckpt_path)
-        else:
+        elif vqa_module.lower() == "llavamed":  # Specialized tools for llavamed
             print("Using LLaVaMed model as the VQA module.")
             self.ckpt_path = "microsoft/llava-med-v1.5-mistral-7b" # load from huggingface
             self.model = LLaVaMed(self.ckpt_path)
+        else:
+            self.ckpt_path = model_path
+            self.model = GPT_VQA(self.ckpt_path)
+            print("Using GPT-4o as the VQA module.")
     
     def get_answer(self, image_path, prompt):
         answer = self.model.get_answer(image_path, prompt)
