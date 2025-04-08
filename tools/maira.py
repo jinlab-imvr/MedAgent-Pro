@@ -29,12 +29,19 @@ class MAIRA:
             )
         prompt_length = processed_inputs["input_ids"].shape[-1]
         decoded_text = self.processor.decode(output_decoding[0][prompt_length:], skip_special_tokens=True)
-        prediction = self.processor.convert_output_to_plaintext_or_grounded_sequence(decoded_text)
+        
+        try:
+            prediction = self.processor.convert_output_to_plaintext_or_grounded_sequence(decoded_text)
+        except (ValueError, AssertionError) as e:
+            prediction = [(None, None)]
 
-        width, height = image.size
-        bbox = prediction[0][1][0]
-        bbox = self.processor.adjust_box_for_original_image_size(bbox, width, height)
-
+        if prediction[0][1] is None:
+            bbox = None
+        else:
+            bbox = prediction[0][1][0]
+            width, height = image.size
+            bbox = self.processor.adjust_box_for_original_image_size(bbox, width, height)
+   
         if os.path.exists(output_file):
             with open(output_file, "r", encoding="utf-8") as json_file:
                 existing_data = json.load(json_file)
