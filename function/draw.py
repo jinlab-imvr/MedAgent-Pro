@@ -23,12 +23,13 @@ def draw_bbox(image_path, bbox, output_path):
     image.save(output_path)
     return image
 
-def draw_mask(image_path, mask, output_path):
+def draw_mask(image_path, mask_path, output_path):
     """
     mask: a 1-channel mask, value 0 is the background and 1 is the foreground
     """
-    
+
     img_np = io.imread(image_path)
+    mask = io.imread(mask_path)
     if img_np.ndim == 2:
         img_color = np.stack([img_np] * 3, axis=-1)
     elif img_np.ndim == 3 and img_np.shape[2] == 1:
