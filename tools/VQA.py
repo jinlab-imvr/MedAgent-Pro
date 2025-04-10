@@ -1,7 +1,6 @@
 import os
 import json
 from tools.VisionUnite.model import VisionUniteModel
-# from tools.LLaVaMed.model import LLaVaMed
 from tools.GPT_VQA import GPT_VQA
 
 class VQA_Module:
@@ -11,6 +10,7 @@ class VQA_Module:
             self.ckpt_path = "/mnt/data0/ziyue/MedAgent/VisionUnite/checkpoint"
             self.model = VisionUniteModel(self.ckpt_path)
         elif vqa_module.lower() == "llavamed":  # Specialized tools for llavamed
+            from tools.LLaVaMed.model import LLaVaMed
             print("Using LLaVaMed model as the VQA module.")
             self.ckpt_path = "microsoft/llava-med-v1.5-mistral-7b" # load from huggingface
             self.model = LLaVaMed(self.ckpt_path)
