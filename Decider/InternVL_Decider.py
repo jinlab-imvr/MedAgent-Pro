@@ -73,7 +73,7 @@ def dynamic_preprocess(image, min_num=1, max_num=12, image_size=448, use_thumbna
         processed_images.append(thumbnail_img)
     return processed_images
 
-def load_image(image_file, input_size=448, max_num=8):
+def load_image(image_file, input_size=448, max_num=6):
     image = Image.open(image_file).convert('RGB')
     transform = build_transform(input_size=input_size)
     images = dynamic_preprocess(image, image_size=input_size, use_thumbnail=True, max_num=max_num)
@@ -104,6 +104,7 @@ class InternVL_Decider:
         
         image_messages = []
         if image_paths:
+            image_paths = image_paths[:1]
             for path in image_paths:
                 pixel_values = load_image(path)
                 image_messages.append(pixel_values)
