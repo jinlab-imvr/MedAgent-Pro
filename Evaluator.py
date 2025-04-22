@@ -20,8 +20,12 @@ class Evaluator:
             with open(pred_file_path, 'r', encoding='utf-8') as f:
                 result = json.load(f)
             prediction = result[self.field]
-            all_predictions.append(prediction)
-        
+            if "yes" in prediction.lower():
+                all_predictions.append(1)
+            elif "no" in prediction.lower():
+                all_predictions.append(0)
+            else:
+                all_predictions.append(0)
         pos_count = all_labels.count(1)
         neg_count = all_labels.count(0)
         

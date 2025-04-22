@@ -52,7 +52,7 @@ class GPT_Decider:
         ]
 
         completion = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model="chatgpt-4o-latest",
             messages=messages
         )
         result = completion.choices[0].message.content
