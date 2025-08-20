@@ -1,6 +1,7 @@
 # planner_agent.py (updated)
 import os
 import json
+import re
 import openai
 
 class Planner:
@@ -46,10 +47,16 @@ class Planner:
             "(4) input_type is an ARRAY of integers; use 0 for raw/original inputs, or a prior step's id when the input comes from that step's output; "
             "(5) strings for all non-array fields; no extra keys; output ONLY the JSON array. "
             "(6) The field output_type MUST be EXACTLY one of: 'intermediate result' or 'final indicator'. "
-            "(7) For any non-image output, set output_path EXACTLY to 'diagnosis.json'. Only image outputs (e.g., .png/.jpg/.jpeg/.tif/.bmp/.gif/.webp) may use distinct file paths."
+            "(7) For any non-image output, set output_path EXACTLY to 'diagnosis.json'. Only image outputs (e.g., .png/.jpg/.jpeg/.tif/.bmp/.gif/.webp) may use distinct file paths. "
             "(8) OBSERVE potential QUALITATIVE indicators; list EACH indicator as a SEPARATE step (do not bundle multiple indicators in one step). "
-            "(9) Prefer tools of type containing 'vlm' or visual-language capabilities when observing qualitative indicators."
+            "(9) Prefer tools of type containing 'vlm' or visual-language capabilities when observing qualitative indicators. "
+            "(10) Steps must follow strict logical order with no forward references; each dependency must be produced before it is used. "
+            "(11) Do NOT include both a qualitative and a quantitative step for the SAME indicator; "
+            "(12) Qualitative observation/judgement steps (e.g., 'observe', 'assess', 'judge', 'classify', 'determine abnormality') MUST set output_type='final indicator'. "
+            "(13) Pure segmentation/measurement/computation steps (e.g., 'segment', 'compute', 'measure', 'calculate') MUST set output_type='intermediate result' "
+            "and be FOLLOWED by a qualitative VLM judgement step that takes the metric step id in input_type and outputs the final indicator."
         )
+
 
         user_text = (
             "RAG text:\n"
@@ -122,8 +129,45 @@ class Planner:
         if not isinstance(data, list):
             raise ValueError("Planner output is not a JSON array.")
 
-        allowed_ids = self._allowed_tool_ids(toolset)
+        # ---- helpers ----
+        def _is_image_path(p: str) -> bool:
+            p = (p or "").lower().strip()
+            return any(p.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif", ".webp"))
 
+        def _tool_types(toolset_):
+            if not isinstance(toolset_, list):
+                return {}
+            out = {}
+            for t in toolset_:
+                try:
+                    out[int(t.get("id"))] = str(t.get("type", "")).lower()
+                except Exception:
+                    pass
+            return out
+
+        def _indicator_key(text: str) -> str:
+            s = (text or "").lower()
+            s = re.sub(r"[^a-z0-9\s]+", " ", s)
+            s = re.sub(r"\b(compute|calculate|measure|quantify|estimate|derive|segment|observe|assess|judge|classify|determine|analysis|qualitative|quantitative|of|the|a|an|to|for|and)\b", " ", s)
+            s = re.sub(r"\s+", " ", s).strip()
+            return s
+
+        def _is_metric_step(rec) -> bool:
+            if rec.get("action_type") != "quantitative":
+                return False
+            act = (rec.get("action") or "").lower()
+            return bool(re.search(r"\b(compute|measure|calculate|quantify|estimate|derive)\b", act))
+
+        def _uses_vlm(rec, tool_types_map) -> bool:
+            for tid in rec.get("tool", []) or []:
+                if "vlm" in tool_types_map.get(int(tid), ""):
+                    return True
+            return False
+
+        allowed_ids = self._allowed_tool_ids(toolset)
+        tool_types = _tool_types(toolset)
+
+        # ---- per-item coercion & basic checks ----
         cleaned = []
         for i, item in enumerate(data):
             if not isinstance(item, dict):
@@ -138,7 +182,7 @@ class Planner:
             except Exception:
                 raise ValueError(f"Field 'id' in plan item #{i} must be an integer.")
 
-            # tool
+            # tool -> list[int]
             try:
                 tool_ids = self._coerce_int_list(item["tool"])
             except Exception:
@@ -152,15 +196,14 @@ class Planner:
             at = ("" if item["action_type"] is None else str(item["action_type"]).strip().lower())
             if at not in {"qualitative", "quantitative"}:
                 raise ValueError(f"Field 'action_type' in plan item id={_id} must be 'qualitative' or 'quantitative'.")
-            action_type = at
 
             # strings
             action      = "" if item["action"] is None else str(item["action"])
             output_type = "" if item["output_type"] is None else str(item["output_type"])
             output_path = "" if item["output_path"] is None else str(item["output_path"])
 
-            # ---- New: qualitative 单指标检查（防止把多个 indicator 合并成一步）----
-            if action_type == "qualitative":
+            # qualitative: avoid bundling multiple indicators in one step
+            if at == "qualitative":
                 lowered = action.lower()
                 if any(sep in lowered for sep in [",", " and ", " / "]):
                     raise ValueError(
@@ -168,7 +211,7 @@ class Planner:
                         "List EACH indicator as a SEPARATE step."
                     )
 
-            # input_type
+            # input_type -> list[int]
             try:
                 input_ids = self._coerce_int_list(item["input_type"])
             except Exception:
@@ -177,14 +220,14 @@ class Planner:
             cleaned.append({
                 "id": _id,
                 "tool": tool_ids,
-                "action_type": action_type,
+                "action_type": at,
                 "action": action,
                 "input_type": input_ids,
                 "output_type": output_type,
                 "output_path": output_path,
             })
 
-        # id 连续与依赖顺序
+        # ---- order & dependency checks ----
         cleaned.sort(key=lambda x: x["id"])
         n = len(cleaned)
         expected_ids = list(range(1, n + 1))
@@ -201,27 +244,64 @@ class Planner:
                     raise ValueError(f"Step id={rec['id']} has input dependency {dep} not produced by any prior step.")
             seen.add(rec["id"])
 
-        def _is_image_path(p: str) -> bool:
-            p = (p or "").lower().strip()
-            return any(p.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif", ".webp"))
-
+        # ---- normalize output_type from action semantics ----
         ALLOWED_TYPES = {"intermediate result", "final indicator"}
         for rec in cleaned:
+            act = (rec.get("action") or "").lower()
+            atype = rec.get("action_type")
+            # qualitative observation/judgement -> final indicator
+            if atype == "qualitative" and re.search(r"\b(observe|assess|judge|classify|determine|abnormal)\b", act):
+                rec["output_type"] = "final indicator"
+            # quantitative segmentation/measurement/computation -> intermediate result
+            if atype == "quantitative" and re.search(r"\b(segment|compute|measure|calculate|quantify|estimate|derive)\b", act):
+                rec["output_type"] = "intermediate result"
+
+        # ---- fallback standardization & output_path policy ----
+        for rec in cleaned:
             ot = (rec.get("output_type") or "").strip().lower()
-
-            # 规范 output_type
-            if ot in ALLOWED_TYPES:
-                rec["output_type"] = ot
-            else:
-                if ("final" in ot) or ("indicator" in ot):
-                    rec["output_type"] = "final indicator"
-                else:
-                    rec["output_type"] = "intermediate result"
-
-            # 非图片：统一 diagnosis.json
+            rec["output_type"] = ot if ot in ALLOWED_TYPES else ("final indicator" if "indicator" in ot else "intermediate result")
             op = (rec.get("output_path") or "").strip()
             if not _is_image_path(op):
                 rec["output_path"] = "diagnosis.json"
+
+        # ---- forbid mixing qualitative & quantitative for SAME indicator ----
+        by_indicator = {}
+        for rec in cleaned:
+            k = _indicator_key(rec.get("action", ""))
+            if not k:
+                continue
+            by_indicator.setdefault(k, set()).add(rec["action_type"])
+        for k, types in by_indicator.items():
+            if "qualitative" in types and "quantitative" in types:
+                raise ValueError(
+                    f"Indicator conflict: both qualitative and quantitative steps found for '{k}'. "
+                    "Keep only the quantitative step; use qualitative only if no quantitative tool exists."
+                )
+
+        # ---- require VLM qualitative judgement after metric steps ----
+        ids_to_rec = {r["id"]: r for r in cleaned}
+        for r in cleaned:
+            if not _is_metric_step(r):
+                continue
+            rid = r["id"]
+            ok = False
+            for q in cleaned:
+                if q["id"] <= rid:
+                    continue
+                if q["action_type"] != "qualitative":
+                    continue
+                if rid not in (q.get("input_type") or []):
+                    continue
+                if q.get("output_type") != "final indicator":
+                    continue
+                if _uses_vlm(q, tool_types):
+                    ok = True
+                    break
+            if not ok:
+                raise ValueError(
+                    f"Metric step id={rid} ('{r.get('action','')}') must be followed by a qualitative VLM judgement step "
+                    f"that references this step id in input_type and outputs a final indicator."
+                )
 
         return cleaned
 
