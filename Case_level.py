@@ -1,66 +1,180 @@
 import os
 import json
+import re
 from tqdm import tqdm
-from tools.MSA.model import SAM_Adapter
-from tools.VQA import VQA_Module
-from Decider.MOE_Decider import MOE_Decider
+from CodingAgent import Coding_Agent
 from Summary_Module import Summary_Module
-from Evaluator import Evaluator
 
-OPENAI_API_KEY = ""
+OPENAI_API_KEY = ''
 
-## Load data
-data_root = "Fundus"
-full_record = os.path.join(data_root,'full_record')
-brief_record = os.path.join(data_root,'brief_record')
-pred_record = os.path.join(data_root,'pred_record')
+from Glaucoma.tools import *
 
+data_root = "Glaucoma"
+# 1) load task
+task_path = os.path.join(data_root, "task.json")
+with open(task_path, "r", encoding="utf-8") as f:
+    task = json.load(f)
+
+# 2) load plan
+plan_path = os.path.join(data_root, "plan.json")
+with open(plan_path, "r", encoding="utf-8") as f:
+    plan = json.load(f)
+
+# 3) load toolset
+toolset_path = os.path.join(data_root, "toolset.json")
+with open(toolset_path, "r", encoding="utf-8") as f:
+    toolset = json.load(f)
+
+# 4) build mappings for tools and plans
+tool_by_id = {int(t["id"]): t for t in toolset if "id" in t}
+plan_by_id = {int(s["id"]): s for s in plan if "id" in s}
+
+# 5) register functions
+TOOL_FN_REGISTRY = {
+    "segment_optic_cup":  segment_optic_cup,
+    "segment_optic_disc": segment_optic_disc,
+}
+
+def command_to_fn_name(command: str) -> str:
+    # extract function name
+    if not command:
+        return ""
+    s = command.strip()
+    if "(" in s:
+        s = s.split("(", 1)[0]
+    return s.strip()
+
+# 6) generate new functions by CodingAgent
+coder = Coding_Agent(OPENAI_API_KEY)
+code_path = os.path.join(data_root, "tools", "GenCode.py")
+os.makedirs(os.path.dirname(code_path), exist_ok=True)
+if not os.path.exists(code_path):
+    with open(code_path, "w", encoding="utf-8") as f:
+        f.write("# Generated code\n")
+
+def snake(s: str, fallback="generated_fn"):
+    s = re.sub(r"[^0-9a-zA-Z]+", " ", str(s or "")).strip().lower()
+    s = "_".join(w for w in s.split() if w)
+    return s or fallback
+
+def inputs_desc(step):
+    deps = step.get("input_type", []) or []
+    descs = []
+    for dep in deps:
+        try:
+            dep = int(dep)
+        except Exception:
+            continue
+
+        if dep == 0:
+            descs.append(str(task.get("input", "")).strip())
+            continue
+
+        prev = plan_by_id.get(dep)
+        if not prev:
+            descs.append(f"[missing step {dep}]")
+            continue
+
+        tids = prev.get("tool", []) or []
+        if not isinstance(tids, list):
+            tids = [tids]
+
+        outs = [str(tool_by_id.get(int(tid), {}).get("output", "")).strip() for tid in tids]
+        fallback = str(prev.get("output_type", "")).strip()
+        descs.append(" / ".join([o for o in outs if o]) or fallback)
+
+    return [d for d in descs if d]  # <-- 返回列表
+
+def build_requirement_and_name(step):
+    # name: derive from action or output_type; ensure uniqueness by step id
+    base = step.get("action") or step.get("output_type") or "generated_fn"
+    fn_name = f"{snake(base)}_{int(step.get('id', 0))}"
+
+    # inputs: descriptions from dependencies (list, order preserved)
+    in_desc_list = inputs_desc(step)             # <-- 这里返回的是 list
+    in_desc_str  = ", ".join(in_desc_list)
+
+    out_desc = str(step.get("output_type", "")).strip()
+
+    # REQUIREMENT —— 强制函数签名接收列表 inputs
+    requirement = (
+        "Implement a Python function with the EXACT signature:\n"
+        f"{fn_name}(inputs, save_dir, save_name)\n\n"
+        "Semantics:\n"
+        "- `inputs` is a LIST; its elements correspond IN ORDER to the step dependencies.\n"
+        f"- Conceptual inputs: {in_desc_str}\n"
+        f"- Output (conceptual): {out_desc}\n\n"
+        "Constraints:\n"
+        "- The function is self-contained; add imports inside if needed. No print statements.\n"
+        "- Use save_dir/save_name to write outputs if necessary; raise exceptions on invalid inputs.\n"
+        "- Add a brief docstring explaining inputs (list), outputs, and side effects."
+    )
+    return fn_name, requirement
+
+
+for step in plan:
+    # only steps whose tool type contains 'coding'
+    tool_ids = step.get("tool", []) or []
+    if not isinstance(tool_ids, list):
+        tool_ids = [tool_ids]
+    if not any("coding" in str(tool_by_id.get(int(tid), {}).get("type", "")).lower() for tid in tool_ids):
+        continue
+
+    fn_name, requirement = build_requirement_and_name(step)
+    print(requirement)
+    coder.generate_function(
+        output_file=code_path,
+        requirement=requirement,
+        enforce_function_name=fn_name,
+        extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
+        model="chatgpt-4o-latest",
+    )
+
+# 7) Case-level analysis 
 img_dir = "/mnt/data0/ziyue/dataset/Glaucoma/REFUGE2/Training400"
-name_list = [
-            f"Glaucoma_{file}" for file in os.listdir(os.path.join(img_dir, 'Glaucoma'))
-        ] + [
-            f"Non-Glaucoma_{file}" for file in os.listdir(os.path.join(img_dir, 'Non-Glaucoma'))
-        ]
+name_list = (
+    [f"Glaucoma_{f}"      for f in os.listdir(os.path.join(img_dir, "Glaucoma"))]
+    + [f"Non-Glaucoma_{f}" for f in os.listdir(os.path.join(img_dir, "Non-Glaucoma"))]
+)
 
-## Prompt format
-prompt1 = "Please describe the observations made in the fundus image."
-prompt2 = "Does the patient have Peripapillary Atrophy according to the fundus image? Elaborate on your answer and support with visual evidence from the image."
-prompt3 = "Please describe the observations made in the fundus image and provide a diagnosis on optic drance hemorrhages."
-
-
-vqa = VQA_Module("Glaucoma")
-summary = Summary_Module(OPENAI_API_KEY)
-
-sam_ckpt = '/mnt/data0/ziyue/Medical-SAM-Adapter/checkpoint/sam/sam_vit_b_01ec64.pth'
-cup_weights = 'tools/MSA/Adapters/OpticCup_Fundus_SAM_1024.pth'
-disc_weights = 'tools/MSA/Adapters/OpticDisc_Fundus_SAM_1024.pth'
-
-cup_adapter = SAM_Adapter(sam_ckpt, cup_weights)
-disc_adapter = SAM_Adapter(sam_ckpt, disc_weights)
-
-# weights = {"cdr": 0.3, "rt": 0.3, "ppa": 0.2}
-weights = {"ppa": 0.2}
-decider = MOE_Decider(weights, 0.4)
-evaluator = Evaluator("moe_prediction")
-
-for idx in tqdm(range(3)):
+os.makedirs(os.path.join(data_root, "record"), exist_ok=True)
+for idx in tqdm(range(2)):  
     example = name_list[idx]
-    subdir, file = example.split('_')
-    image_path = os.path.join(img_dir, subdir,file)
-    full_json = os.path.join(full_record, example.split(".")[0] + ".json")
-    brief_json = os.path.join(brief_record, example.split(".")[0] + ".json")
-    pred_json = os.path.join(pred_record, example.split(".")[0] + ".json")
+    subdir, file = example.split("_", 1)
 
-    answer = vqa.get_answer(image_path, prompt2)
-    vqa.save_answer(full_json, "ppa", answer)
+    image_path = os.path.join(img_dir, subdir, file)
+    if not os.path.exists(image_path):
+        continue
 
-    cup_mask = cup_adapter.predict_mask(image_path, os.path.join(data_root, "cup_pred", example.split(".")[0] + ".png"), category=0)
-    disc_mask = disc_adapter.predict_mask(image_path, os.path.join(data_root, "disc_pred", example.split(".")[0] + ".png"), category=128)
-    
-    field = "ppa" 
-    summary_prompt = f"Based on the above text, please provide a brief summary. does this patient have {field}?"
-    summary_text = summary.summarize(full_json, brief_json, summary_prompt, "ppa")
+    save_dir = os.path.join(data_root, "record", example.split(".")[0])
+    os.makedirs(save_dir, exist_ok=True)
 
-    metrics = decider.decide(brief_json, pred_json)
+    for step in plan:
+        at = str(step.get("action_type", "")).lower()
+        if at != "quantitative":
+            continue
 
-evaluator.evaluate(pred_record)
+        save_name = step.get("output_path", "")
+
+        # plan 中 tool 是一个 tool-id 的数组；逐个执行
+        tool_ids = step.get("tool", [])
+        if not isinstance(tool_ids, list):
+            tool_ids = [tool_ids]
+
+        for tid in tool_ids:
+            tool = tool_by_id.get(int(tid))
+            if tool is None:
+                print(f"[warn] tool id {tid} not found in toolset")
+                continue
+
+            fn_name = command_to_fn_name(tool.get("command", ""))
+            fn = TOOL_FN_REGISTRY.get(fn_name)
+            if fn is None:
+                print(f"[warn] command '{fn_name}' not registered; add it to TOOL_FN_REGISTRY")
+                continue
+
+            try:
+                fn(image_path, save_dir, save_name)
+            except Exception as e:
+                print(f"[error] '{fn_name}' failed on {example}: {e}")
+            

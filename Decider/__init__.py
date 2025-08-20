@@ -4,3 +4,4 @@ from .BioMedClip_Decider import BioMedClip_Decider
 from .MOE_Decider import MOE_Decider
 from .Qwen_Decider import Qwen_Decider
 from .InternVL_Decider import InternVL_Decider
+from .Gemma_Decider import Gemma_Decider
