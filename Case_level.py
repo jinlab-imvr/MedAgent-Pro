@@ -139,13 +139,13 @@ for step in plan:
         continue
 
     fn_name, requirement = build_requirement_and_name(step)
-    coder.generate_function(
-        output_file=code_path,
-        requirement=requirement,
-        enforce_function_name=fn_name,
-        extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
-        model="chatgpt-4o-latest",
-    )
+    # coder.generate_function(
+    #     output_file=code_path,
+    #     requirement=requirement,
+    #     enforce_function_name=fn_name,
+    #     extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
+    #     model="chatgpt-4o-latest",
+    # )
     # register in the TOOL_FN_REGISTRY
     register_generated_function(fn_name)
 
@@ -170,30 +170,52 @@ for idx in tqdm(range(2)):
 
     for step in plan:
         at = str(step.get("action_type", "")).lower()
-        if at != "quantitative":
+        if at == "quantitative":
+            save_name = step.get("output_path", "")
+            # plan 中 tool 是一个 tool-id 的数组；逐个执行
+            tool_ids = step.get("tool", [])
+            if not isinstance(tool_ids, list):
+                tool_ids = [tool_ids]
+
+            for tid in tool_ids:
+                tool = tool_by_id.get(int(tid))
+                if tool is None:
+                    print(f"[warn] tool id {tid} not found in toolset")
+                    continue
+                
+                if "coding" in tool.get("type", "").lower():
+                    fn_name, _ = build_requirement_and_name(step)
+                else:
+                    fn_name = command_to_fn_name(tool.get("command", ""))
+                    
+                fn = TOOL_FN_REGISTRY.get(fn_name)
+                if fn is None:
+                    print(f"[warn] command '{fn_name}' not registered; add it to TOOL_FN_REGISTRY")
+                    continue
+
+                try:
+                    input_type = step.get("input_type", [])
+                    if len(input_type) == 1:
+                        dep = input_type[0]
+                        if dep == 0:
+                            fn(image_path, save_dir, save_name)
+                        else:
+                            input_path = os.path.join(save_dir, plan[dep]["output_path"])
+                            fn(input_path, save_dir, save_name)
+                    else:
+                        inputs = []
+                        for dep in input_type:
+                            if dep == 0:
+                                inputs.append(image_path)
+                            else:
+                                prev_step = plan_by_id.get(int(dep))
+                                if prev_step:
+                                    prev_save_name = prev_step.get("output_path", "")
+                                    inputs.append(os.path.join(save_dir, prev_save_name))
+                        fn(inputs, save_dir, save_name)
+                except Exception as e:
+                    print(f"[error] '{fn_name}' failed on {example}: {e}")
+
+        elif at == "qualitative":
             continue
-
-        save_name = step.get("output_path", "")
-
-        # plan 中 tool 是一个 tool-id 的数组；逐个执行
-        tool_ids = step.get("tool", [])
-        if not isinstance(tool_ids, list):
-            tool_ids = [tool_ids]
-
-        for tid in tool_ids:
-            tool = tool_by_id.get(int(tid))
-            if tool is None:
-                print(f"[warn] tool id {tid} not found in toolset")
-                continue
-
-            fn_name = command_to_fn_name(tool.get("command", ""))
-            fn = TOOL_FN_REGISTRY.get(fn_name)
-            if fn is None:
-                print(f"[warn] command '{fn_name}' not registered; add it to TOOL_FN_REGISTRY")
-                continue
-
-            try:
-                fn(image_path, save_dir, save_name)
-            except Exception as e:
-                print(f"[error] '{fn_name}' failed on {example}: {e}")
             
