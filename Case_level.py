@@ -1,6 +1,7 @@
 import os
 import json
 import re
+from importlib import import_module, reload
 from tqdm import tqdm
 from CodingAgent import Coding_Agent
 from Summary_Module import Summary_Module
@@ -43,6 +44,23 @@ def command_to_fn_name(command: str) -> str:
     if "(" in s:
         s = s.split("(", 1)[0]
     return s.strip()
+
+# to register generated functions
+def register_generated_function(fn_name: str):
+    """Reload GenCode and add the freshly generated function into TOOL_FN_REGISTRY."""
+    module_name = f"{data_root}.tools.GenCode"  # e.g., 'Glaucoma.tools.GenCode'
+    try:
+        mod = import_module(module_name)
+    except ModuleNotFoundError:
+        # 首次创建 GenCode.py 后 import；此时再 import 一次
+        mod = import_module(module_name)
+    # 每次生成代码都 reload，拿到最新追加的函数
+    mod = reload(mod)
+    if hasattr(mod, fn_name):
+        TOOL_FN_REGISTRY[fn_name] = getattr(mod, fn_name)
+        print(f"[registry] registered {fn_name} -> TOOL_FN_REGISTRY")
+    else:
+        print(f"[warn] {fn_name} not found in {module_name} after reload")
 
 # 6) generate new functions by CodingAgent
 coder = Coding_Agent(OPENAI_API_KEY)
@@ -121,7 +139,6 @@ for step in plan:
         continue
 
     fn_name, requirement = build_requirement_and_name(step)
-    print(requirement)
     coder.generate_function(
         output_file=code_path,
         requirement=requirement,
@@ -129,6 +146,8 @@ for step in plan:
         extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
         model="chatgpt-4o-latest",
     )
+    # register in the TOOL_FN_REGISTRY
+    register_generated_function(fn_name)
 
 # 7) Case-level analysis 
 img_dir = "/mnt/data0/ziyue/dataset/Glaucoma/REFUGE2/Training400"
