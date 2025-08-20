@@ -13,19 +13,6 @@ planner = Planner(api_key=OPENAI_API_KEY)
 data_root = "./Glaucoma"
 task_file = os.path.join(data_root, 'task.json')
 tool_file = os.path.join(data_root, 'toolset.json')
-brief_file = os.path.join(data_root,'brief_record/REFUGE')
-pred_dir = os.path.join(data_root,'brief_record/REFUGE')
-
-img_dir = "/mnt/data0/ziyue/dataset/Glaucoma/REFUGE2/Training400"
-name_list = [
-            f"Glaucoma_{file}" for file in os.listdir(os.path.join(img_dir, 'Glaucoma'))
-        ] + [
-            f"Non-Glaucoma_{file}" for file in os.listdir(os.path.join(img_dir, 'Non-Glaucoma'))
-        ]
-
-example = name_list[0]
-subdir, file = example.split('_')
-image_path = os.path.join(img_dir, subdir,file)
 
 
 rag_prompt = "how to diagnose glaucoma"
