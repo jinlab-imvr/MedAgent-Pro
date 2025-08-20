@@ -109,12 +109,12 @@ def build_requirement_and_name(step):
     fn_name = f"{snake(base)}_{int(step.get('id', 0))}"
 
     # inputs: descriptions from dependencies (list, order preserved)
-    in_desc_list = inputs_desc(step)             # <-- 这里返回的是 list
+    in_desc_list = inputs_desc(step)             # returns list
     in_desc_str  = ", ".join(in_desc_list)
 
     out_desc = str(step.get("output_type", "")).strip()
+    step_id = int(step.get("id", 0))
 
-    # REQUIREMENT —— 强制函数签名接收列表 inputs
     requirement = (
         "Implement a Python function with the EXACT signature:\n"
         f"{fn_name}(inputs, save_dir, save_name)\n\n"
@@ -124,10 +124,15 @@ def build_requirement_and_name(step):
         f"- Output (conceptual): {out_desc}\n\n"
         "Constraints:\n"
         "- The function is self-contained; add imports inside if needed. No print statements.\n"
-        "- Use save_dir/save_name to write outputs if necessary; raise exceptions on invalid inputs.\n"
-        "- Add a brief docstring explaining inputs (list), outputs, and side effects."
+        "- Always use `os.path.join(save_dir, save_name)` as the ONLY output file path for any NON-IMAGE result.\n"
+        "- NON-IMAGE includes text/json/markdown/metrics/numerical values/tables/etc. Do NOT create separate text/json files.\n"
+        "- If the output is an IMAGE (extensions: .png/.jpg/.jpeg/.tif/.tiff/.bmp/.gif/.webp), you may write that image to disk using save_dir/save_name as the filename (or derive an image filename from it).\n"
+        "- When writing NON-IMAGE results, open/create the JSON file at `os.path.join(save_dir, save_name)`, read existing JSON if present, update a unique key for this step (e.g., "
+        f"'step_{step_id}'), and atomically write back (write to a temp file then replace). Use UTF-8 and ensure_ascii=False.\n"
+        "- Add a brief docstring explaining inputs (list), outputs, and side effects.\n"
     )
     return fn_name, requirement
+
 
 
 for step in plan:
@@ -139,13 +144,13 @@ for step in plan:
         continue
 
     fn_name, requirement = build_requirement_and_name(step)
-    # coder.generate_function(
-    #     output_file=code_path,
-    #     requirement=requirement,
-    #     enforce_function_name=fn_name,
-    #     extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
-    #     model="chatgpt-4o-latest",
-    # )
+    coder.generate_function(
+        output_file=code_path,
+        requirement=requirement,
+        enforce_function_name=fn_name,
+        extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
+        model="chatgpt-4o-latest",
+    )
     # register in the TOOL_FN_REGISTRY
     register_generated_function(fn_name)
 

@@ -55,9 +55,10 @@ planner_prompt = (
     "- tool is an ARRAY of integers (tool ids from the toolset)\n"
     "- action_type is a STRING: 'qualitative' or 'quantitative'\n"
     "- input_type is an ARRAY of integers; use 0 for raw/original inputs, or a prior step's id if the input is that step's output\n"
+    "- The field output_type MUST be EXACTLY one of: 'intermediate result' or 'final indicator'\n"
+    "- For any non-image output, set output_path EXACTLY to 'diagnosis.json'; only images may use distinct file paths\n"
     "Return ONLY the JSON array."
 )
-
 
 planner.plan(data_root, planner_prompt, rag_result, filename="plan.json", toolset=toolset)
 

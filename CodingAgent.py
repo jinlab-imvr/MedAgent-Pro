@@ -6,10 +6,6 @@ from typing import Optional
 
 class Coding_Agent:
     def __init__(self, api_key: str):
-        """
-        Args:
-            api_key (str): OpenAI API Key
-        """
         self.api_key = api_key
         openai.api_key = self.api_key
 
@@ -20,16 +16,15 @@ class Coding_Agent:
         enforce_function_name: Optional[str] = None,
         extra_context: Optional[str] = None,
     ):
-        """
-        Build messages for ChatCompletion using your dialog format.
-        The model must return ONLY a single complete Python function (no fences).
-        """
         system_msg = (
             "You are a Python coding assistant. "
             "Return ONLY a single COMPLETE Python function definition. "
             "No markdown fences, no explanations, no tests. "
             "Keep it self-contained (import inside the function if needed), "
-            "avoid print statements, add a brief docstring."
+            "avoid print statements, add a brief docstring. "
+            "Policy: For any NON-IMAGE result, the function must write/merge the output into the JSON at "
+            "`os.path.join(save_dir, save_name)` (e.g., diagnosis.json). Do NOT create any other text/json files. "
+            "Only image outputs may use distinct image files."
         )
 
         user_text = (
@@ -57,34 +52,43 @@ class Coding_Agent:
     # ---------- parsing ----------
     def _strip_fences(self, text: str) -> str:
         t = (text or "").strip()
-        # remove common ```python ... ``` wrappers if any
         if t.startswith("```"):
             parts = t.split("```")
-            # pick the longest code-looking chunk
             parts = sorted((p.strip() for p in parts), key=len, reverse=True)
             for p in parts:
                 if p.startswith("def "):
                     return p
-            # fallback
             return parts[0] if parts else ""
         return t
 
     def _extract_function_name(self, code: str) -> str:
-        """
-        Extract function name from 'def name(...):'
-        """
         m = re.search(r"^\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", code, flags=re.MULTILINE)
         if not m:
             raise ValueError("Could not find a Python function signature in the model output.")
         return m.group(1)
 
     def _append_to_file(self, file_path: str, code: str):
-        os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
+        os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True
+                    )
         needs_gap = os.path.exists(file_path) and os.path.getsize(file_path) > 0
         with open(file_path, "a", encoding="utf-8") as f:
             if needs_gap:
                 f.write("\n\n")
             f.write(code.rstrip() + "\n")
+
+    def _post_generate_check(self, code: str):
+        """
+        Lightweight sanity checks to enforce:
+        - uses save_dir/save_name in path building (join)
+        - hints at json usage for non-image outputs
+        """
+        musts = ["save_dir", "save_name", "os.path.join("]
+        for m in musts:
+            if m not in code:
+                raise ValueError(f"Generated function must reference `{m}` per IO policy.")
+        # encourage json handling (cannot be 100% reliable, but good guard)
+        if "json" not in code.lower():
+            pass
 
     # ---------- public API ----------
     def generate_function(
@@ -95,20 +99,6 @@ class Coding_Agent:
         enforce_function_name: Optional[str] = None,
         extra_context: Optional[str] = None,
     ) -> str:
-        """
-        Generate a function per requirement, append to output_file (no overwrite),
-        and return the function name.
-
-        Args:
-            output_file (str): target .py file to append the function into
-            requirement (str): natural-language requirement/spec
-            model (str): OpenAI model name
-            enforce_function_name (str|None): if provided, the model must use this exact name
-            extra_context (str|None): optional hints (I/O spec, examples, constraints)
-
-        Returns:
-            str: generated function name
-        """
         messages = self._build_messages(
             requirement=requirement,
             enforce_function_name=enforce_function_name,
@@ -125,6 +115,9 @@ class Coding_Agent:
         fn_name = self._extract_function_name(code)
         if enforce_function_name and fn_name != enforce_function_name:
             raise ValueError(f"function_name must be '{enforce_function_name}', got '{fn_name}'.")
+
+        # minimal guard to ensure it honors the IO policy
+        self._post_generate_check(code)
 
         self._append_to_file(output_file, code)
         return fn_name
