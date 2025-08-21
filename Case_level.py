@@ -144,17 +144,64 @@ for step in plan:
         continue
 
     fn_name, requirement = build_requirement_and_name(step)
-    # coder.generate_function(
-    #     output_file=code_path,
-    #     requirement=requirement,
-    #     enforce_function_name=fn_name,
-    #     extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
-    #     model="chatgpt-4o-latest",
-    # )
+    coder.generate_function(
+        output_file=code_path,
+        requirement=requirement,
+        enforce_function_name=fn_name,
+        extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
+        model="chatgpt-4o-latest",
+    )
     # register in the TOOL_FN_REGISTRY
     register_generated_function(fn_name)
 
 # 7) Case-level analysis 
+
+def json_to_text(value, max_chars: int = 2000) -> str:
+    """Convert any JSON value to a compact string for LLM prompts."""
+    if isinstance(value, str):
+        s = value.strip()
+    else:
+        s = json.dumps(value, ensure_ascii=False)
+    return s if len(s) <= max_chars else (s[:max_chars] + " …[truncated]")
+
+def read_prev_output(save_dir: str, filename: str, dep_id: int): 
+    """
+    Return (text, image_path). If JSON: pick data['step_<dep_id>'] if exists, else whole file.
+    If image: return (None, image_abs_path). If plain text: return (text, None).
+    Missing file -> (None, None).
+    """
+    if not filename:
+        return None, None
+    path = os.path.join(save_dir, filename)
+    if not os.path.exists(path):
+        return None, None
+
+    low = filename.lower()
+    if low.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".gif", ".webp")):
+        return None, path
+    if low.endswith(".json"):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            key = f"step_{dep_id}"
+            val = data.get(key, data)   # 优先取 step_k，没有就用整份 JSON
+            return json_to_text(val), None
+        except Exception as e:
+            return f"[error reading {filename}: {e}]", None
+    # 其它当作纯文本
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read().strip(), None
+    except Exception as e:
+        return f"[error reading {filename}: {e}]", None
+
+def build_qual_prompt(base_question: str, texts: list[str]) -> str:
+    if not texts:
+        return base_question
+    bullets = "\n".join(f"- {t}" for t in texts if t)
+    return f"{base_question}\n\nContext:\n{bullets}"
+
+
 img_dir = "/mnt/data0/ziyue/dataset/Glaucoma/REFUGE2/Training400"
 name_list = (
     [f"Glaucoma_{f}"      for f in os.listdir(os.path.join(img_dir, "Glaucoma"))]
@@ -225,30 +272,41 @@ for idx in tqdm(range(1)):
                     print(f"[error] '{fn_name}' failed on {example}: {e}")
 
         elif at == "qualitative":
-            for tid in tool_ids:
-                # Should be conducted by VLM by default
-                tool = tool_by_id.get(int(tid))
-                try:
-                    image_input = []
-                    text_input = []
-                    input_type = step.get("input_type", [])
-                    for dep in input_type:
-                        if dep == 0:
-                            image_input.append(image_path)
-                        else:
-                            continue
-                            # prev_step = plan_by_id.get(int(dep))
-                            # if prev_step:
-                            #     prev_save_name = prev_step.get("output_path", "")
-                            #     inputs.append(os.path.join(save_dir, prev_save_name))
-                    ques = step.get("action", "")
-                    Analyzer.decide(output_file=os.path.join(save_dir, save_name), prompt=ques, image_paths=image_input, field=f"step_{step_id+1}")
+            try:
+                image_input, text_input = [], []
+                for dep in step.get("input_type", []) or []:
+                    dep = int(dep)
+                    if dep == 0:
+                        image_input.append(image_path)  # 原始图像
+                    else:
+                        prev_step = plan_by_id.get(dep, {})
+                        prev_save_name = prev_step.get("output_path", "")
+                        t, img = read_prev_output(save_dir, prev_save_name, dep)
+                        if img:
+                            image_input.append(img)
+                        if t:
+                            text_input.append(t)
 
-                    summary_prompt = f"Based on the above text, please provide a brief summary. The task is {ques}. Does this patient have the abnormal?"
-                    Summarizer.summarize(input_file=os.path.join(save_dir, save_name), output_file=os.path.join(save_dir, "brief_diagnosis.json"), prompt=summary_prompt, field=f"step_{step_id+1}")
-                except Exception as e:
-                    print(f"[error] '{fn_name}' failed on {example}: {e}")
+                ques = step.get("action", "")
+                full_prompt = build_qual_prompt(ques, text_input)
 
-                else:
-                    continue
+                Analyzer.decide(
+                    output_file=os.path.join(save_dir, save_name),
+                    prompt=full_prompt,
+                    image_paths=image_input,
+                    field=f"step_{step.get('id')}"
+                )
+
+                summary_prompt = (
+                    f"Based on the above text, please provide a brief summary. "
+                    f"The task is: {ques}. Does this patient have the abnormal?"
+                )
+                Summarizer.summarize(
+                    input_file=os.path.join(save_dir, save_name),
+                    output_file=os.path.join(save_dir, 'brief_diagnosis.json'),
+                    prompt=summary_prompt,
+                    field=f"step_{step.get('id')}"
+                )
+            except Exception as e:
+                print(f"[error] qualitative step id={step.get('id')} failed on {example}: {e}")
             
