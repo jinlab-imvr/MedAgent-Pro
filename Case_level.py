@@ -161,9 +161,10 @@ name_list = (
     + [f"Non-Glaucoma_{f}" for f in os.listdir(os.path.join(img_dir, "Non-Glaucoma"))]
 )
 Analyzer = GPT_Decider(OPENAI_API_KEY)
+Summarizer = Summary_Module(OPENAI_API_KEY)
 
 os.makedirs(os.path.join(data_root, "record"), exist_ok=True)
-for idx in tqdm(range(2)):  
+for idx in tqdm(range(1)):  
     example = name_list[idx]
     subdir, file = example.split("_", 1)
 
@@ -240,7 +241,11 @@ for idx in tqdm(range(2)):
                             # if prev_step:
                             #     prev_save_name = prev_step.get("output_path", "")
                             #     inputs.append(os.path.join(save_dir, prev_save_name))
-                    Analyzer.decide(output_file=os.path.join(save_dir, save_name), prompt=step.get("action", ""), image_paths=image_input, field=f"step_{step_id+1}")
+                    ques = step.get("action", "")
+                    Analyzer.decide(output_file=os.path.join(save_dir, save_name), prompt=ques, image_paths=image_input, field=f"step_{step_id+1}")
+
+                    summary_prompt = f"Based on the above text, please provide a brief summary. The task is {ques}. Does this patient have the abnormal?"
+                    Summarizer.summarize(input_file=os.path.join(save_dir, save_name), output_file=os.path.join(save_dir, "brief_diagnosis.json"), prompt=summary_prompt, field=f"step_{step_id+1}")
                 except Exception as e:
                     print(f"[error] '{fn_name}' failed on {example}: {e}")
 

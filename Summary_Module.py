@@ -37,7 +37,6 @@ class Summary_Module:
         if field not in input_data:
             print(f"field '{field}' not found in the input data.")
             return
-
         content = input_data[field]
 
         messages = [
@@ -47,7 +46,7 @@ class Summary_Module:
         ]
 
         completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="chatgpt-4o-latest",
             messages=messages
         )
         summary_text = completion.choices[0].message.content
