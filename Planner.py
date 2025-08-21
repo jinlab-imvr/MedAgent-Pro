@@ -51,9 +51,9 @@ class Planner:
             "(8) OBSERVE potential QUALITATIVE indicators; list EACH indicator as a SEPARATE step (do not bundle multiple indicators in one step). "
             "(9) Prefer tools of type containing 'vlm' or visual-language capabilities when observing qualitative indicators. "
             "(10) Steps must follow strict logical order with no forward references; each dependency must be produced before it is used. "
-            "(11) Do NOT include both a qualitative and a quantitative step for the SAME indicator; "
-            "(12) Qualitative observation/judgement steps (e.g., 'observe', 'assess', 'judge', 'classify', 'determine abnormality') MUST set output_type='final indicator'. "
-            "(13) Pure segmentation/measurement/computation steps (e.g., 'segment', 'compute', 'measure', 'calculate') MUST set output_type='intermediate result' "
+            "(11) Qualitative observation/judgement steps (e.g., 'observe', 'assess', 'judge', 'classify', 'determine abnormality') MUST set output_type='final indicator'. "
+            "(12) Pure segmentation/measurement/computation steps (e.g., 'segment', 'compute', 'measure', 'calculate') MUST set output_type='intermediate result' "
+            # "(13) Do NOT include both a qualitative and a quantitative step for the SAME indicator; "
             "and be FOLLOWED by a qualitative VLM judgement step that takes the metric step id in input_type and outputs the final indicator."
         )
 

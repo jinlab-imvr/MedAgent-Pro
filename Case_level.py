@@ -4,6 +4,7 @@ import re
 from importlib import import_module, reload
 from tqdm import tqdm
 from CodingAgent import Coding_Agent
+from Decider import GPT_Decider
 from Summary_Module import Summary_Module
 
 OPENAI_API_KEY = ''
@@ -134,7 +135,6 @@ def build_requirement_and_name(step):
     return fn_name, requirement
 
 
-
 for step in plan:
     # only steps whose tool type contains 'coding'
     tool_ids = step.get("tool", []) or []
@@ -144,13 +144,13 @@ for step in plan:
         continue
 
     fn_name, requirement = build_requirement_and_name(step)
-    coder.generate_function(
-        output_file=code_path,
-        requirement=requirement,
-        enforce_function_name=fn_name,
-        extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
-        model="chatgpt-4o-latest",
-    )
+    # coder.generate_function(
+    #     output_file=code_path,
+    #     requirement=requirement,
+    #     enforce_function_name=fn_name,
+    #     extra_context="`inputs` is a list; each item may be a file path or an in-memory object (e.g., numpy array). Handle both gracefully.",
+    #     model="chatgpt-4o-latest",
+    # )
     # register in the TOOL_FN_REGISTRY
     register_generated_function(fn_name)
 
@@ -160,6 +160,7 @@ name_list = (
     [f"Glaucoma_{f}"      for f in os.listdir(os.path.join(img_dir, "Glaucoma"))]
     + [f"Non-Glaucoma_{f}" for f in os.listdir(os.path.join(img_dir, "Non-Glaucoma"))]
 )
+Analyzer = GPT_Decider(OPENAI_API_KEY)
 
 os.makedirs(os.path.join(data_root, "record"), exist_ok=True)
 for idx in tqdm(range(2)):  
@@ -173,15 +174,16 @@ for idx in tqdm(range(2)):
     save_dir = os.path.join(data_root, "record", example.split(".")[0])
     os.makedirs(save_dir, exist_ok=True)
 
-    for step in plan:
+    for step_id, step in enumerate(plan):
         at = str(step.get("action_type", "")).lower()
-        if at == "quantitative":
-            save_name = step.get("output_path", "")
-            # plan 中 tool 是一个 tool-id 的数组；逐个执行
-            tool_ids = step.get("tool", [])
-            if not isinstance(tool_ids, list):
-                tool_ids = [tool_ids]
 
+        tool_ids = step.get("tool", [])
+        if not isinstance(tool_ids, list):
+            tool_ids = [tool_ids]
+
+        save_name = step.get("output_path", "")
+
+        if at == "quantitative":
             for tid in tool_ids:
                 tool = tool_by_id.get(int(tid))
                 if tool is None:
@@ -222,5 +224,26 @@ for idx in tqdm(range(2)):
                     print(f"[error] '{fn_name}' failed on {example}: {e}")
 
         elif at == "qualitative":
-            continue
+            for tid in tool_ids:
+                # Should be conducted by VLM by default
+                tool = tool_by_id.get(int(tid))
+                try:
+                    image_input = []
+                    text_input = []
+                    input_type = step.get("input_type", [])
+                    for dep in input_type:
+                        if dep == 0:
+                            image_input.append(image_path)
+                        else:
+                            continue
+                            # prev_step = plan_by_id.get(int(dep))
+                            # if prev_step:
+                            #     prev_save_name = prev_step.get("output_path", "")
+                            #     inputs.append(os.path.join(save_dir, prev_save_name))
+                    Analyzer.decide(output_file=os.path.join(save_dir, save_name), prompt=step.get("action", ""), image_paths=image_input, field=f"step_{step_id+1}")
+                except Exception as e:
+                    print(f"[error] '{fn_name}' failed on {example}: {e}")
+
+                else:
+                    continue
             

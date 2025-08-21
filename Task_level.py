@@ -15,7 +15,7 @@ task_file = os.path.join(data_root, 'task.json')
 tool_file = os.path.join(data_root, 'toolset.json')
 
 
-rag_prompt = "how to diagnose glaucoma"
+rag_prompt = "How to diagnose glaucoma?"
 rag_result = rag.query(rag_prompt)
 print("RAG result:")
 print(rag_result)
@@ -45,9 +45,9 @@ planner_prompt = (
     "- The field output_type MUST be EXACTLY one of: 'intermediate result' or 'final indicator'\n"
     "- For any non-image output, set output_path EXACTLY to 'diagnosis.json'; only images may use distinct file paths\n"
     "- Use a VLM tool to observe potential qualitative indicators; list EACH indicator as a SEPARATE step (do not bundle multiple indicators).\n"
-    "- Steps must follow strict logical order with no forward references; each dependency must be produced before it is used.\n"
     "- Qualitative observation/judgement steps MUST set output_type='final indicator'\n"
     "- Segmentation/measurement/computation steps MUST set output_type='intermediate result' and be followed by a qualitative VLM judgement step referencing that metric step id to produce the final indicator\n"
+    "- Steps must follow strict logical order with no forward references; each dependency must be produced before it is used.\n"
     "Return ONLY the JSON array."
 )
 
