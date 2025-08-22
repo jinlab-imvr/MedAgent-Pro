@@ -4,7 +4,7 @@ import re
 from importlib import import_module, reload
 from tqdm import tqdm
 from CodingAgent import Coding_Agent
-from Decider import GPT_Decider
+from Decider import GPT_Decider, Pro_Decider
 from Summary_Module import Summary_Module
 
 OPENAI_API_KEY = ''
@@ -209,9 +209,10 @@ name_list = (
 )
 Analyzer = GPT_Decider(OPENAI_API_KEY)
 Summarizer = Summary_Module(OPENAI_API_KEY)
+decider = Pro_Decider(OPENAI_API_KEY)
 
 os.makedirs(os.path.join(data_root, "record"), exist_ok=True)
-for idx in tqdm(range(1)):  
+for idx in tqdm(range(2)):  
     example = name_list[idx]
     subdir, file = example.split("_", 1)
 
@@ -310,3 +311,39 @@ for idx in tqdm(range(1)):
             except Exception as e:
                 print(f"[error] qualitative step id={step.get('id')} failed on {example}: {e}")
             
+    # The decision period 
+    input_desc   = str(task.get("input", "")).strip()
+    disease_goal = str(task.get("disease", "")).strip()
+
+    indicators = []
+    with open(os.path.join(save_dir, 'brief_diagnosis.json')) as f:
+        brief_data = json.load(f)
+
+    for step_id, step in enumerate(plan):
+        if step.get("output_type", "").lower() != "final indicator":
+            continue
+        else:
+            indicators.append(
+                {
+                    "indicator_name": step.get("action", ""),
+                    "if_abnormal": brief_data.get(f"step_{step.get('id')}", {})
+                }
+            )
+
+    decide_prompt = (
+        "You are a clinical decision assistant.\n"
+        "Task & context:\n"
+        f"- Input: {input_desc}\n"
+        f"- Goal: {disease_goal}\n\n"
+        "Please propose reasonable weights (sum to 1) and a threshold in [0,1]. "
+        "Return ONLY a JSON object with the keys: 'weights' (list of {'indicator_name','weight'}), "
+        "'threshold' (float), and an optional 'notes' (short string)."
+    )
+
+    final_result = decider.decide(
+        output_file=os.path.join(save_dir, "final_diagnosis.json"),
+        prompt=decide_prompt,
+        indicators=indicators,   
+        field="overall"
+    )
+    print(final_result["overall"])
