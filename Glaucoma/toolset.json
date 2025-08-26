@@ -1,0 +1,30 @@
+[   
+    {
+        "id": 1,
+        "type": "Vision Language Model (VLM)",
+        "function": "Make qualitative analysis",
+        "input": "Any image, text or multi-modal input",
+        "output": "Qualitative analysis or description of certain features"
+    },
+    {
+        "id": 2,
+        "type": "segmentation model",
+        "function": "Segmentation the optic disc",
+        "input": "Original fundus image",
+        "output": "The one-channel grayscalesegmentation mask of the optic disc, the background is value 0, and the optic disc is value 1. The output should be save as an image file.", 
+        "command": "segment_optic_disc()"
+    },
+    {
+        "id": 3,
+        "type": "segmentation model",
+        "function": "Segmentation the optic cup",
+        "input": "Original fundus image",
+        "output": "The one-channel grayscale segmentation mask of the optic cup, the background is value 0, and the optic cup is value 1. The output should be save as an image file.",
+        "command": "segment_optic_cup()"
+    },
+    {
+        "id": 4,
+        "type": "coding module",
+        "function": "Write simple code for some indicator computation"   
+    }
+]
