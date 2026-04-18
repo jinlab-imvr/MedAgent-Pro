@@ -1,0 +1,50 @@
+{
+    "Atelectasis": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Atelectasis"
+    },
+    "Cardiomegaly": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Cardiomegaly"
+    },
+    "Consolidation": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Consolidation"
+    },
+    "Edema": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Edema (Pulmonary Edema)"
+    },
+    "Enlarged Cardiomediastinum": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Enlarged Cardiomediastinum"
+    },
+    "Fracture": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Fracture (rib, clavicle, or vertebral)"
+    },
+    "Lung Lesion": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Lung Lesion"
+    },
+    "Lung Opacity": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Lung Opacity"
+    },
+    "Pleural Effusion": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Pleural Effusion"
+    },
+    "Pneumonia": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Pneumonia"
+    },
+    "Pneumothorax": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Diagnose potential Pneumothorax"
+    },
+    "Support Devices": {
+        "input": "Frontal chest X-ray image of the patient",
+        "disease": "Detect presence of Support Devices (tubes, lines, pacemakers, etc.)"
+    }
+}

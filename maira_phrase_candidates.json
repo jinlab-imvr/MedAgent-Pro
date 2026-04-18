@@ -1,0 +1,114 @@
+{
+  "metadata": {
+    "name": "maira_phrase_candidates",
+    "version": "1.0",
+    "description": "High-confidence phrasing candidates for MAIRA/MAIRA-2 based on publicly available MAIRA-2 and PadChest-GR materials, grouped by confidence level.",
+    "notes": [
+      "This is not an official label taxonomy from MAIRA/MAIRA-2.",
+      "Tier 1 focuses on the very stable MIMIC/MS-CXR findings and support-device phrases explicitly evidenced in public MAIRA-2 or MS-CXR materials.",
+      "Tier 2 contains phrases explicitly appearing in MAIRA-2 examples or PadChest-GR public examples.",
+      "Tier 3 contains conservative recommended phrases aligned with chest X-ray radiology wording and the grounded-report / phrase-grounding setup."
+    ]
+  },
+  "tiers": {
+    "tier_1_most_stable": {
+      "description": "Very stable phrases: the 8 MS-CXR/MIMIC finding categories plus support-device phrases directly evidenced in MAIRA-2 public examples.",
+      "mimic_ms_cxr_8_findings": [
+        "atelectasis",
+        "cardiomegaly",
+        "consolidation",
+        "pulmonary edema",
+        "lung opacity",
+        "pleural effusion",
+        "pneumonia",
+        "pneumothorax"
+      ],
+      "support_devices_and_related_phrases": [
+        "endotracheal tube",
+        "ET tube",
+        "enteric tube"
+      ]
+    },
+    "tier_2_explicit_examples": {
+      "description": "Phrases explicitly appearing in public MAIRA-2 examples or PadChest-GR public examples.",
+      "maira2_explicit_examples": {
+        "anatomy_or_structure": [
+          "cardiac silhouette",
+          "cardiomediastinal silhouette",
+          "mediastinal silhouette",
+          "cardiac and mediastinal silhouettes",
+          "hilar contours",
+          "cardiomediastinal and hilar contours",
+          "mid thoracic trachea",
+          "carina",
+          "diaphragm",
+          "left upper quadrant",
+          "right middle lobe",
+          "right lung base",
+          "left basilar",
+          "aortic knob"
+        ],
+        "findings_or_report_phrases": [
+          "right pleural effusion",
+          "right basilar atelectasis",
+          "left basilar consolidation",
+          "pulmonary edema",
+          "lungs are clear",
+          "no pleural effusion",
+          "no pneumothorax",
+          "no focal consolidation"
+        ]
+      },
+      "padchest_gr_public_examples": [
+        "calcified aortic atheromatosis",
+        "biapical pleural thickening",
+        "left basal linear atelectasis",
+        "aortic elongation"
+      ]
+    },
+    "tier_3_conservative_recommendations": {
+      "description": "Conservative recommended phrasing candidates that are not framed as official labels, but are likely to align better with chest X-ray report wording than generic anatomy nouns.",
+      "cardiomediastinal_and_heart": [
+        "cardiac silhouette",
+        "cardiomediastinal silhouette",
+        "mediastinal silhouette",
+        "hilar contours",
+        "heart size",
+        "cardiac size",
+        "cardiomegaly"
+      ],
+      "airway_and_tubes": [
+        "trachea",
+        "mid thoracic trachea",
+        "carina",
+        "endotracheal tube",
+        "enteric tube"
+      ],
+      "lung_location_phrases": [
+        "left lung base",
+        "right lung base",
+        "left basilar",
+        "right middle lobe",
+        "right lower lobe",
+        "left lower lobe"
+      ],
+      "pleura_and_related_findings": [
+        "pleural effusion",
+        "pneumothorax",
+        "apical pleural thickening",
+        "pleural thickening"
+      ],
+      "finding_plus_location_templates": [
+        "left basilar consolidation",
+        "right basilar atelectasis",
+        "right lung base opacities",
+        "left basal linear atelectasis"
+      ],
+      "less_preferred_generic_phrases": [
+        "heart",
+        "thoracic cavity",
+        "airway"
+      ]
+    }
+  }
+}

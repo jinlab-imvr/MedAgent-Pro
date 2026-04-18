@@ -1,0 +1,30 @@
+[
+    {
+        "id": 1,
+        "type": "Vision Language Model (VLM)",
+        "function": "Make qualitative analysis of chest X-ray findings",
+        "input": "Chest X-ray image(s), text, or multi-modal input",
+        "output": "Qualitative analysis or description of certain radiographic features"
+    },
+    {
+        "id": 2,
+        "type": "grounding model",
+        "function": "Detect and localise regions in chest X-ray via phrase grounding. Can directly localise disease-related regions for: atelectasis, cardiomegaly, consolidation, edema, lung opacity, pleural effusion, pneumonia, pneumothorax, supporting device. Can also localise anatomical structures such as heart, lung, trachea, mediastinum, diaphragm, hila, etc.",
+        "input": "Chest X-ray image and a phrase describing the target (disease name or anatomical structure)",
+        "output": "Bounding box coordinates of the detected region, saved as an image with drawn bounding box"
+    },
+    {
+        "id": 3,
+        "type": "segmentation model",
+        "function": "Segment anatomical structures (lungs, heart, mediastinum, etc.) in chest X-ray. NOTE: can ONLY segment organs and anatomical structures, NOT lesions or disease regions directly. MUST receive a bounding box from the grounding model (tool 2) as input prompt — cannot run on raw image alone.",
+        "input": "Chest X-ray image AND bounding box from grounding model (tool 2) as prompt",
+        "output": "Segmentation mask of the target anatomical structure, saved as an image file"
+    },
+    {
+        "id": 4,
+        "type": "coding module",
+        "function": "Write and execute code for quantitative indicator computation (e.g., cardiothoracic ratio, area measurements)",
+        "input": "Segmentation masks or bounding boxes from prior steps",
+        "output": "Numerical indicator values saved to diagnosis.json"
+    }
+]
